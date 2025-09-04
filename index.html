@@ -2,154 +2,193 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
-  <title>JSON 產生器（支援片語 空白 中文格式）</title>
+  <title>JSON 產生器（可選格式）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; padding:20px; }
-    .container { max-width: 900px; margin:auto; background:#fff; padding:30px; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,.1); }
-    h1 { text-align:center; color:#333; margin-bottom:16px; }
-    p.hint { margin:8px 0 16px; color:#555; line-height:1.6; }
-    textarea { width:100%; height:220px; padding:10px; margin-top:6px; border-radius:6px; border:1px solid #ccc; resize:vertical; font-size:16px; font-family:Consolas, monospace; }
-    .btn { display:block; width:100%; padding:14px; margin-top:16px; border:none; border-radius:6px; font-size:16px; cursor:pointer; transition:.2s; }
-    .btn-primary { background:#28a745; color:#fff; }
-    .btn-primary:hover { background:#218838; }
-    .btn-secondary { background:#007bff; color:#fff; }
-    .btn-secondary:hover { background:#0069d9; }
-    .row { display:flex; gap:12px; margin-top:12px; }
-    .row .btn { flex:1; }
+    :root {
+      --bg:#f4f6f8; --card:#fff; --text:#333; --muted:#666; --primary:#28a745; --primary-h:#218838; --accent:#007bff; --accent-h:#0069d9; --border:#dcdfe3;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", sans-serif; background:var(--bg); margin:0; padding:20px; color:var(--text); }
+    .container { max-width: 980px; margin:auto; background:var(--card); padding:28px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.08); }
+    h1 { text-align:center; margin:0 0 4px; }
+    .subtitle { text-align:center; color:#556; margin:0 0 16px; font-size:14px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    label { font-weight:600; }
+    select, textarea, input[type="text"] { width:100%; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:15px; }
+    textarea { height:220px; font-family:Consolas,Monaco,monospace; resize:vertical; }
+    .hint { color:var(--muted); font-size:13px; line-height:1.6; margin-top:6px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; }
+    .btn { appearance:none; border:none; border-radius:10px; padding:12px 16px; font-weight:700; cursor:pointer; transition:.18s transform, .2s background-color; }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background:var(--primary); color:#fff; }
+    .btn-primary:hover { background:var(--primary-h); }
+    .btn-accent { background:var(--accent); color:#fff; }
+    .btn-accent:hover { background:var(--accent-h); }
+    .btn-ghost { background:#eef1f5; color:#223; }
     .output { margin-top:20px; display:none; }
-    pre { background:#f8f9fa; padding:15px; border-radius:6px; overflow-x:auto; white-space:pre-wrap; word-wrap:break-word; border:1px solid #ddd; }
-    .small { color:#777; font-size:13px; }
-    .badge { display:inline-block; padding:3px 8px; border-radius:999px; background:#eef; color:#224; font-size:12px; margin-left:6px; }
+    pre { margin:8px 0 0; background:#f8f9fa; padding:16px; border:1px solid var(--border); border-radius:10px; white-space:pre-wrap; word-break:break-word; }
+    .summary { color:#445; font-size:14px; margin-top:8px; }
+    .badge { display:inline-block; padding:3px 10px; border-radius:999px; background:#eef; color:#224; font-size:12px; margin-left:6px; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>JSON 產生器 <span class="badge">自動判斷格式</span></h1>
+    <h1>JSON 產生器 <span class="badge">格式可選</span></h1>
+    <p class="subtitle">將你的英中詞彙轉成 <code>[{ english, chinese }]</code> 陣列</p>
 
-    <label for="inputData"><strong>輸入資料</strong></label>
-    <p class="hint">
-      你可以直接貼上像這樣的一大串：<br>
-      <code>a game of cat and mouse 貓捉老鼠遊戲 a leap of faith 放手一搏 aboard 船上 absolutely 絕對地 …</code><br>
-      也支援原本的「每兩行一組」：第一行英文、第二行中文，依序重複。
-    </p>
+    <div class="grid">
+      <div>
+        <label for="mode">輸入格式</label>
+        <select id="mode" onchange="updatePlaceholder()">
+          <option value="auto">自動偵測</option>
+          <option value="space-pairs">空白分隔（英文 片語 + 空白 + 中文，反覆）</option>
+          <option value="line-pairs">每兩行一組（第1行英文；第2行中文）</option>
+        </select>
+        <div class="hint" id="modeHint"></div>
+      </div>
+      <div>
+        <label for="sep">（進階）自訂片語間分隔（空白分隔模式專用）</label>
+        <input id="sep" type="text" placeholder="預設留空 = 任意空白；例如可輸入：單一空白 或 | 等字元" />
+        <div class="hint">多數情況不必改。若你在英文中文之間使用特殊字元，請填入該字元（如 <code>|</code>）。</div>
+      </div>
+    </div>
 
-    <textarea id="inputData" placeholder="範例 1（空白分隔）：
-a game of cat and mouse 貓捉老鼠遊戲 a leap of faith 放手一搏 aboard 船上 absolutely 絕對地 …
+    <label for="inputData" style="margin-top:10px; display:block;">輸入資料</label>
+    <textarea id="inputData" placeholder="（自動偵測）可貼一大串：\na game of cat and mouse 貓捉老鼠遊戲 a leap of faith 放手一搏 aboard 船上 absolutely 絕對地 ...\n\n或每兩行一組：\ndiagnose\n診斷\ndiagnosis\n診斷\ninvestigate\n調查"></textarea>
 
-或
-
-範例 2（每兩行一組）：
-diagnose
-診斷
-diagnosis
-診斷
-investigate
-調查"></textarea>
-
-    <button class="btn btn-primary" onclick="generateJSON()">生成 JSON</button>
-
-    <div class="row">
-      <button class="btn btn-secondary" onclick="downloadJSON()">下載 JSON</button>
-      <button class="btn" onclick="copyJSON()">複製到剪貼簿</button>
-      <button class="btn" onclick="clearAll()">清空</button>
+    <div class="row" style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="generateJSON()">生成 JSON</button>
+      <button class="btn btn-accent" onclick="downloadJSON()" id="dlBtn" disabled>下載 JSON</button>
+      <button class="btn btn-ghost" onclick="copyJSON()" id="cpBtn" disabled>複製到剪貼簿</button>
+      <button class="btn btn-ghost" onclick="clearAll()">清空</button>
     </div>
 
     <div class="output" id="outputSection">
-      <h2>生成的 JSON</h2>
+      <h2 style="margin:0;">生成的 JSON</h2>
       <pre id="jsonOutput"></pre>
-      <p class="small" id="summary"></p>
+      <div class="summary" id="summary"></div>
     </div>
   </div>
 
   <script>
-    function hasCJK(str) {
-      return /[^\x00-\x7F]/.test(str);
+    function setButtonsEnabled(enabled){
+      document.getElementById('dlBtn').disabled = !enabled;
+      document.getElementById('cpBtn').disabled = !enabled;
     }
 
-    function parseLinePairs(input) {
-      const lines = input.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-      if (lines.length % 2 !== 0) return null;
+    function updatePlaceholder(){
+      const mode = document.getElementById('mode').value;
+      const ta = document.getElementById('inputData');
+      const hint = document.getElementById('modeHint');
+      if(mode === 'line-pairs'){
+        ta.placeholder = '每兩行一組：\nEnglish phrase\n中文翻譯\nEnglish phrase 2\n中文翻譯 2\n...';
+        hint.textContent = '範例：\nadvance\n前進\nadventure\n冒險';
+      }else if(mode === 'space-pairs'){
+        ta.placeholder = '空白分隔：英文 片語 + 空白 + 中文（反覆）\n例如：\na game of cat and mouse 貓捉老鼠遊戲 a leap of faith 放手一搏 aboard 船上 absolutely 絕對地 ...';
+        hint.textContent = '中文通常視為非 ASCII，一遇到中文就收束前面的英文片語。';
+      }else{
+        ta.placeholder = '（自動偵測）可貼一大串：\na game of cat and mouse 貓捉老鼠遊戲 a leap of faith 放手一搏 aboard 船上 ...\n\n或每兩行一組：\nadvance\n前進\nadventure\n冒險';
+        hint.textContent = '會先嘗試每兩行一組；若不符合則改以空白分隔規則解析。';
+      }
+    }
+
+    function parseLinePairs(input){
+      const lines = input.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+      if(lines.length % 2 !== 0) return null; // incomplete
       const arr = [];
-      for (let i = 0; i < lines.length; i += 2) {
-        arr.push({ english: lines[i], chinese: lines[i + 1] });
+      for(let i=0;i<lines.length;i+=2){
+        arr.push({ english: lines[i], chinese: lines[i+1] });
       }
       return arr;
     }
 
-    function parseSpaceSeparated(input) {
-      const text = input.replace(/\s+/g, ' ').trim();
-
+    function parseSpaceSeparated(input, customSep){
+      // 若使用者指定分隔字元，先把它標準化成空白
+      let text = input;
+      if(customSep){
+        const esc = customSep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const reSep = new RegExp(esc, 'g');
+        text = text.replace(reSep, ' ');
+      }
+      text = text.replace(/\s+/g, ' ').trim();
+      // 規則：英文片語(允許空白、連字號、撇號) + 空白 + 中文（非 ASCII）
       const re = /([A-Za-z][A-Za-z’'`-]*(?: [A-Za-z][A-Za-z’'`-]*)*)\s+([^\x00-\x7F]+)(?=\s+[A-Za-z]|$)/g;
-
       const arr = [];
       let m;
-      while ((m = re.exec(text)) !== null) {
+      while((m = re.exec(text))!==null){
         const english = m[1].trim();
         const chinese = m[2].trim();
-        if (english && chinese) arr.push({ english, chinese });
+        if(english && chinese){ arr.push({ english, chinese }); }
       }
       return arr;
     }
 
-    function autoParse(input) {
-      const lineTry = parseLinePairs(input);
-      if (lineTry && lineTry.length > 0) {
-        return { data: lineTry, mode: 'line-pairs' };
-      }
-      const spaceTry = parseSpaceSeparated(input);
-      if (spaceTry && spaceTry.length > 0) {
-        return { data: spaceTry, mode: 'space-pairs' };
-      }
+    function autoParse(input, customSep){
+      const byLines = parseLinePairs(input);
+      if(byLines && byLines.length) return { data: byLines, mode: 'line-pairs' };
+      const bySpaces = parseSpaceSeparated(input, customSep);
+      if(bySpaces && bySpaces.length) return { data: bySpaces, mode: 'space-pairs' };
       return { data: [], mode: 'unknown' };
     }
 
-    function generateJSON() {
+    function generateJSON(){
       const input = document.getElementById('inputData').value.trim();
-      if (!input) {
-        alert('請先貼上資料！');
-        return;
+      const mode = document.getElementById('mode').value;
+      const customSep = document.getElementById('sep').value.trim();
+      if(!input){ alert('請先貼上資料！'); return; }
+
+      let data = [], usedMode = mode;
+      if(mode === 'line-pairs'){
+        const res = parseLinePairs(input);
+        if(!res){ alert('每兩行一組格式不完整（總行數需要是 2 的倍數）。'); return; }
+        data = res;
+      }else if(mode === 'space-pairs'){
+        data = parseSpaceSeparated(input, customSep);
+        if(!data.length){ alert('無法以「空白分隔」解析，請檢查格式或嘗試自動偵測。'); return; }
+      }else{ // auto
+        const res = autoParse(input, customSep);
+        if(!res.data.length){ alert('自動偵測失敗。請改選指定格式，或檢查輸入。'); return; }
+        data = res.data; usedMode = res.mode;
       }
 
-      const { data, mode } = autoParse(input);
-
-      if (!data.length) {
-        alert('無法解析輸入。請確認格式：\n1) 每兩行一組（英文→中文），或\n2) 片語(英文) + 空白 + 中文，重複出現。');
-        return;
-      }
-
-      const jsonString = JSON.stringify(data, null, 4);
-      document.getElementById('jsonOutput').textContent = jsonString;
-      document.getElementById('summary').textContent =
-        `共產生 ${data.length} 筆（偵測格式：${mode === 'line-pairs' ? '每兩行一組' : '空白分隔'}）。`;
+      const jsonStr = JSON.stringify(data, null, 4);
+      document.getElementById('jsonOutput').textContent = jsonStr;
+      document.getElementById('summary').textContent = `共產生 ${data.length} 筆（模式：${usedMode==='line-pairs'?'每兩行一組':'空白分隔'}）。`;
       document.getElementById('outputSection').style.display = 'block';
+      setButtonsEnabled(true);
     }
 
-    function downloadJSON() {
-      const content = document.getElementById('jsonOutput').textContent;
-      if (!content) { alert('尚未產生 JSON。'); return; }
-      const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+    function downloadJSON(){
+      const txt = document.getElementById('jsonOutput').textContent;
+      if(!txt){ alert('尚未產生 JSON。'); return; }
+      const blob = new Blob([txt], { type:'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = 'data.json';
-      a.click();
+      a.href = url; a.download = 'data.json'; a.click();
       URL.revokeObjectURL(url);
     }
 
-    function copyJSON() {
-      const content = document.getElementById('jsonOutput').textContent;
-      if (!content) { alert('尚未產生 JSON。'); return; }
-      navigator.clipboard.writeText(content)
-        .then(() => alert('已複製到剪貼簿！'))
-        .catch(() => alert('複製失敗，請手動選取複製。'));
+    function copyJSON(){
+      const txt = document.getElementById('jsonOutput').textContent;
+      if(!txt){ alert('尚未產生 JSON。'); return; }
+      navigator.clipboard.writeText(txt)
+        .then(()=>alert('已複製到剪貼簿！'))
+        .catch(()=>alert('複製失敗，請手動選取複製。'));
     }
 
-    function clearAll() {
+    function clearAll(){
       document.getElementById('inputData').value = '';
       document.getElementById('jsonOutput').textContent = '';
       document.getElementById('summary').textContent = '';
       document.getElementById('outputSection').style.display = 'none';
+      setButtonsEnabled(false);
     }
+
+    // init
+    updatePlaceholder();
+    setButtonsEnabled(false);
   </script>
 </body>
 </html>
